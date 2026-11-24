@@ -140,6 +140,9 @@ internal class QueueStart(private val service: Target) {
          * page fails; never throws.
          */
         suspend fun fetchRelated(seed: MediaMetadata, endpoint: BrowseEndpoint?): List<MediaMetadata>
+
+        /** Applies local cooldown and artist-window rules to the radio answer, preserving its seed. */
+        suspend fun filterAutomaticRadio(status: Queue.Status, seed: MediaMetadata?): Queue.Status = status
     }
 
     /**
@@ -218,11 +221,12 @@ internal class QueueStart(private val service: Target) {
             Log.d(TAG, "playQueue: Queue initial status dropped, another queue was asked for since")
             return
         }
-        val initialStatus = if (isRadio && preloadItem != null && answer.items.size == 1) {
+        val filledStatus = if (isRadio && preloadItem != null && answer.items.size == 1) {
             filled(answer, preloadItem) { !service.destroyed && number == lastStart } ?: return
         } else {
             answer
         }
+        val initialStatus = if (isRadio) service.filterAutomaticRadio(filledStatus, preloadItem) else filledStatus
         // The queue of one goes once the full queue is loaded, where a queue of the answer's title
         // is on the board already: the board fills that one, and renaming the queue of one as
         // well left two queues of one name, one of them a single song. A radio started twice

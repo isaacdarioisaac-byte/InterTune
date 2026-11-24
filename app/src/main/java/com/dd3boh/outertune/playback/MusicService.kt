@@ -2474,7 +2474,72 @@ class MusicService : MediaLibraryService(),
                 .filterNot { SongVersions.isVersionOf(it.title, seed.title) }
                 .map { it.toMediaMetadata() }
         }
+
+        override suspend fun filterAutomaticRadio(status: Queue.Status, seed: MediaMetadata?): Queue.Status {
+            val now = System.currentTimeMillis()
+            val seedIndex = seed?.let { chosen -> status.items.indexOfFirst { it.id == chosen.id } }
+                ?.takeIf { it >= 0 } ?: status.mediaItemIndex
+            val filtered = RadioQueueRules.filterInitial(
+                items = status.items,
+                startIndex = seedIndex,
+                history = recentRadioHistory(now),
+                nowMs = now,
+            )
+            if (filtered.items.size < status.items.size) {
+                Log.d(TAG, "Radio rules left out ${status.items.size - filtered.items.size} initial recommendations")
+            }
+            return status.copy(items = filtered.items, mediaItemIndex = filtered.startIndex)
+        }
     })
+
+    /** Read the last 48 hours from the listen log; this survives process restarts and excludes failed streams. */
+    private suspend fun recentRadioHistory(now: Long): List<RadioQueueRules.Play> = withContext(Dispatchers.IO) {
+        database.readOrNull {
+            recentRadioPlays(now - RadioQueueRules.SONG_COOLDOWN_MS, now)
+        }.orEmpty().map { row ->
+            RadioQueueRules.Play(
+                songId = row.songId,
+                artistKeys = RadioQueueRules.artistKeys(row.artistId, row.artistName),
+                atMs = row.startedAt,
+            )
+        }
+    }
+
+    /** Filters a newly fetched radio page against listening history and the automatic tail already queued. */
+    private suspend fun filterRadioSuggestions(
+        candidates: List<MediaMetadata>,
+        queue: MultiQueueObject,
+    ): List<MediaMetadata> {
+        if (candidates.isEmpty()) return candidates
+        val now = System.currentTimeMillis()
+        val items = queue.getCurrentQueueShuffled()
+        val currentIndex = activePlayer.currentMediaItemIndex.coerceIn(-1, items.lastIndex)
+        val remainingCurrent = activePlayer.duration.takeIf { it > 0L }
+            ?.let { (it - activePlayer.currentPosition).coerceAtLeast(0L) }
+            ?: RadioQueueRules.UNKNOWN_DURATION_MS
+        var nextAt = now + remainingCurrent
+        val handAdded = heard.byHandIn(queue.id, queue.runId)
+        val reserved = ArrayList<RadioQueueRules.Scheduled>()
+        for (index in (currentIndex + 1).coerceAtLeast(0) until items.size) {
+            val item = items[index]
+            if (item.id !in handAdded) {
+                reserved += RadioQueueRules.Scheduled(
+                    songId = item.id,
+                    artistKeys = RadioQueueRules.artistKeys(item.artists),
+                    atMs = nextAt,
+                )
+            }
+            val duration = if (item.duration > 0) item.duration.toLong() * 1000L else RadioQueueRules.UNKNOWN_DURATION_MS
+            nextAt += duration
+        }
+        return RadioQueueRules.filterPage(
+            candidates = candidates,
+            history = recentRadioHistory(now),
+            reserved = reserved,
+            firstCandidateAtMs = nextAt,
+            nowMs = now,
+        )
+    }
 
     /**
      * Add items to queue, right after current playing item
@@ -5085,12 +5150,17 @@ class MusicService : MediaLibraryService(),
                 val songs = q.getCurrentQueueShuffled().toList()
                 val fresh = RadioPage.fresh(mediaItems.drop(1), songs, heard.reached, heard.reachedVersions)
                 Log.d(TAG, "onMediaItemTransition: ${fresh.size} of them new to this run")
+                val automaticRadio = endRadio || q.origin == PlayOrigin.RADIO.code || q.origin == PlayOrigin.SEARCH.code
+                val eligible = if (automaticRadio) filterRadioSuggestions(fresh, q) else fresh
+                if (eligible.size < fresh.size) {
+                    Log.d(TAG, "Radio rules left out ${fresh.size - eligible.size} recommendations")
+                }
                 // Nor, with the radio kept up to date, what this run turned down, banned songs or
                 // lasting dislikes: the page joins five songs from now at most, inside the lock by
                 // the next song change, where no pass looks (AdaptivePass.pageKeeps).
-                val joining = if (!adaptiveQueueMode.isOn) fresh else {
+                val joining = if (!adaptiveQueueMode.isOn) eligible else {
                     val view = heard.view()
-                    AdaptivePass.pageKeeps(fresh, view.turnedDown, view.positiveArtists, tasteCache?.second)
+                    AdaptivePass.pageKeeps(eligible, view.turnedDown, view.positiveArtists, tasteCache?.second)
                 }
                 if (joining.size < fresh.size) Log.d(TAG, "Adaptive queue: the radio's next page left out ${fresh.size - joining.size} songs")
                 val next = RadioPage.nextSeed(anchor, joining, songs, asked = playlistId)

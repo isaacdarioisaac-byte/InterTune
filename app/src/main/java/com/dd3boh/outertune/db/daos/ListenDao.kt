@@ -360,6 +360,17 @@ interface ListenDao {
     @Query("SELECT * FROM listen ORDER BY endedAt DESC LIMIT :limit")
     fun recentListens(limit: Int): Flow<List<Listen>>
 
+    /** Recent songs and their artists for radio cooldowns; failed attempts do not count. */
+    @Query("""
+        SELECT DISTINCT l.songId AS songId, a.id AS artistId, a.name AS artistName, l.startedAt AS startedAt
+        FROM listen l
+        LEFT JOIN song_artist_map m ON m.songId = l.songId
+        LEFT JOIN artist a ON a.id = m.artistId
+        WHERE l.startedAt >= :since AND l.startedAt <= :now AND l.endReason != 5
+        ORDER BY l.startedAt
+    """)
+    fun recentRadioPlays(since: Long, now: Long): List<RadioPlayRow>
+
     @Query("""
         SELECT listen.id, song.title, listen.endReason, listen.origin, listen.originSlot, listen.ratio,
                listen.playedMs, listen.endedAt, listen.counted, listen.autoplayDepth, listen.learn
@@ -434,6 +445,7 @@ interface ListenDao {
 
 data class TeamOutcome(val team: Int, val outcome: Int, val n: Int, val wins: Int)
 data class PredictionGrade(val p: Float, val y: Float)
+data class RadioPlayRow(val songId: String, val artistId: String?, val artistName: String?, val startedAt: Long)
 data class BuildScore(val rowKey: Int, val builds: Int, val plays: Int, val hits: Int)
 /** One source's cards that were on screen, see EngineSql.CARDS_SEEN. */
 data class CardsSeenRow(val team: Int, val judged: Int, val waiting: Int, val leftOut: Int, val tapped: Int)
