@@ -17,7 +17,7 @@ internal object RadioQueueRules {
     const val MAX_PER_ARTIST = 2
     const val UNKNOWN_DURATION_MS = 3L * 60L * 1000L
 
-    data class Played(
+    data class Play(
         val songId: String,
         val artistKeys: Set<String>,
         val atMs: Long,
@@ -38,7 +38,7 @@ internal object RadioQueueRules {
     fun filterInitial(
         items: List<MediaMetadata>,
         startIndex: Int,
-        history: List<Played>,
+        history: List<Play>,
         nowMs: Long,
     ): Initial {
         if (items.isEmpty()) return Initial(items, 0)
@@ -48,7 +48,7 @@ internal object RadioQueueRules {
             it.songId == seed.id && kotlin.math.abs(nowMs - it.atMs) <= 5L * 60L * 1000L
         }
         val seedPlay = if (seedAlreadyLogged) emptyList() else listOf(
-            Played(seed.id, artistKeys(seed.artists), nowMs)
+            Play(seed.id, artistKeys(seed.artists), nowMs)
         )
         val filtered = filterAfter(
             items = items,
@@ -64,7 +64,7 @@ internal object RadioQueueRules {
     /** Filters a page, using the planned end of the already queued songs as its first start time. */
     fun filterPage(
         candidates: List<MediaMetadata>,
-        history: List<Played>,
+        history: List<Play>,
         reserved: List<Scheduled>,
         firstCandidateAtMs: Long,
         nowMs: Long,
@@ -80,7 +80,7 @@ internal object RadioQueueRules {
     private fun filterAfter(
         items: List<MediaMetadata>,
         preserveIndex: Int?,
-        history: List<Played>,
+        history: List<Play>,
         reserved: List<Scheduled>,
         firstCandidateAtMs: Long,
         nowMs: Long,
@@ -90,9 +90,9 @@ internal object RadioQueueRules {
         val playedIds = recentHistory.mapTo(HashSet()) { it.songId }
         val reservedIds = reserved.mapTo(HashSet()) { it.songId }
         val acceptedIds = HashSet<String>()
-        val planned = ArrayList<Played>(recentHistory.size + reserved.size + items.size)
+        val planned = ArrayList<Play>(recentHistory.size + reserved.size + items.size)
         planned.addAll(recentHistory)
-        planned.addAll(reserved.map { Played(it.songId, it.artistKeys, it.atMs) })
+        planned.addAll(reserved.map { Play(it.songId, it.artistKeys, it.atMs) })
 
         val output = items.map { it as MediaMetadata? }.toMutableList()
         var nextAt = firstCandidateAtMs
@@ -111,7 +111,7 @@ internal object RadioQueueRules {
                 output[index] = null
             } else {
                 acceptedIds += candidate.id
-                planned += Played(candidate.id, keys, nextAt)
+                planned += Play(candidate.id, keys, nextAt)
                 nextAt += durationMs(candidate.duration)
             }
         }
