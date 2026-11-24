@@ -25,6 +25,9 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      - name: Accept Android NDK license for this build
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
+
       - name: Run radio-limit unit tests
         run: ./gradlew :app:testCoreDebugUnitTest --tests com.dd3boh.outertune.playback.RadioQueueRulesTest
 
