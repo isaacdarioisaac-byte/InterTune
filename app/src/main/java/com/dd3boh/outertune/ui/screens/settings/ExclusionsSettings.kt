@@ -46,9 +46,9 @@ import java.text.DateFormat
 import java.util.Date
 
 /**
- * Everything the recommendation rows have been told to leave out, each with why and until when.
- * Exclusions touch recommendation rows only: search, the library, playlists and radio are never
- * filtered, and banning a song covers its other versions.
+ * Everything recommendations have been told to leave out, each with why and until when. Bans also
+ * affect automatic radio; search, the library, playlists and manually chosen playback remain
+ * available.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

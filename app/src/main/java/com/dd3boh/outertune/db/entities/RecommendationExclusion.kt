@@ -12,9 +12,9 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * Something the recommendation rows must not suggest: a song (and its other versions) or an
- * artist, banned, snoozed for a while, or rested automatically after a skip. Touches only the
- * recommendation rows, never search, library, playlists or radio.
+ * Something recommendations must not suggest: a song (and its other versions) or an artist,
+ * banned, snoozed for a while, or rested automatically after a skip. Bans also affect automatic
+ * radio; manual playback, search, the library and playlists remain available.
  */
 @Immutable
 @Entity(tableName = "recommendation_exclusion", indices = [Index(value = ["kind", "targetId"], unique = true)])

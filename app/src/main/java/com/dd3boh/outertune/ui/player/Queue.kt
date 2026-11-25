@@ -168,6 +168,7 @@ import com.dd3boh.outertune.ui.component.BufferedSheetScrollConnection
 import com.dd3boh.outertune.ui.component.EmptyPlaceholder
 import com.dd3boh.outertune.playback.AdaptiveNote
 import com.dd3boh.outertune.playback.AdaptiveQueue
+import com.dd3boh.outertune.playback.RadioQueueRules
 import androidx.compose.material.icons.rounded.AutoAwesome
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
 import com.dd3boh.outertune.ui.component.FailedNote
@@ -1138,6 +1139,38 @@ fun BoxScope.QueueContent(
                     state = reorderableState,
                     key = QueueRows.key(window)
                 ) {
+                    val currentPlayingIndex by rememberUpdatedState(currentWindowIndex)
+                    val currentByHandIds by rememberUpdatedState(byHandInQueue)
+                    fun blockFromQueue(song: MediaMetadata, swipedIndex: Int, artist: Boolean): Boolean {
+                        if (artist && RadioQueueRules.artistKeys(song.artists).isEmpty()) return false
+                        playerConnection.service.banQueueRecommendation(song, artist)
+                        Toast.makeText(
+                            context,
+                            context.getString(if (artist) R.string.queue_artist_blocked else R.string.queue_song_blocked),
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                        val swipedCurrentSong = swipedIndex == currentPlayingIndex
+                        val currentQueue = qb.getCurrentQueue()
+                        val isAutomaticRadio = currentQueue?.origin == PlayOrigin.RADIO.code || currentQueue?.origin == PlayOrigin.SEARCH.code
+                        val artistKeys = if (artist) RadioQueueRules.artistKeys(song.artists) else emptySet()
+                        val removeIndices = mutableSongs.indices.filter { queueIndex ->
+                            if (queueIndex == currentPlayingIndex) return@filter false
+                            val candidate = mutableSongs[queueIndex]
+                            val isTarget = if (artist) {
+                                RadioQueueRules.artistKeys(candidate.artists).any { it in artistKeys }
+                            } else candidate.id == song.id
+                            isTarget && (queueIndex == swipedIndex || (isAutomaticRadio && candidate.id !in currentByHandIds))
+                        }.sortedDescending()
+                        removeIndices.forEach { queueIndex ->
+                            if (qb.removeCurrentQueueSong(queueIndex)) {
+                                playerConnection.player.removeMediaItem(queueIndex)
+                                mutableSongs.removeAt(queueIndex)
+                            }
+                        }
+                        dropIfEmptied()
+                        return !swipedCurrentSong // Let a song already playing finish.
+                    }
+
                     val dismissState = rememberSwipeToDismissBoxState(
                         positionalThreshold = { totalDistance ->
                             totalDistance
@@ -1153,27 +1186,15 @@ fun BoxScope.QueueContent(
                             }
                             when (dismissValue) {
                                 SwipeToDismissBoxValue.StartToEnd -> {
-                                    if (qb.removeCurrentQueueSong(swipedIndex)) {
-                                        mutableSongs.getOrNull(swipedIndex)?.let { playerConnection.service.noteRemovedByHand(it) }
-                                        mutableSongs.getOrNull(swipedIndex)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
-                                        playerConnection.player.removeMediaItem(swipedIndex)
-                                        mutableSongs.removeAt(swipedIndex)
-                                        dropIfEmptied()
-                                    }
+                                    val blocked = blockFromQueue(window, swipedIndex, artist = false)
                                     haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                                    return@rememberSwipeToDismissBoxState true
+                                    return@rememberSwipeToDismissBoxState blocked
                                 }
 
                                 SwipeToDismissBoxValue.EndToStart -> {
-                                    if (qb.removeCurrentQueueSong(swipedIndex)) {
-                                        mutableSongs.getOrNull(swipedIndex)?.let { playerConnection.service.noteRemovedByHand(it) }
-                                        mutableSongs.getOrNull(swipedIndex)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
-                                        playerConnection.player.removeMediaItem(swipedIndex)
-                                        mutableSongs.removeAt(swipedIndex)
-                                        dropIfEmptied()
-                                    }
+                                    val blocked = blockFromQueue(window, swipedIndex, artist = true)
                                     haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                                    return@rememberSwipeToDismissBoxState true
+                                    return@rememberSwipeToDismissBoxState blocked
                                 }
 
                                 SwipeToDismissBoxValue.Settled -> {
@@ -1279,7 +1300,31 @@ fun BoxScope.QueueContent(
                     if (!lockQueue && !inSelectMode && !detachedHead) {
                         SwipeToDismissBox(
                             state = dismissState,
-                            backgroundContent = {},
+                            backgroundContent = {
+                                val direction = dismissState.dismissDirection
+                                val toRight = direction == SwipeToDismissBoxValue.StartToEnd
+                                val badge = if (toRight) "M" else "A"
+                                val description = stringResource(if (toRight) R.string.queue_swipe_block_song else R.string.queue_swipe_block_artist)
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(if (toRight) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer)
+                                        .padding(horizontal = 20.dp),
+                                    contentAlignment = if (toRight) Alignment.CenterEnd else Alignment.CenterStart,
+                                ) {
+                                    Text(
+                                        text = badge,
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(50))
+                                            .background(if (toRight) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+                                            .padding(horizontal = 18.dp, vertical = 8.dp)
+                                            .semantics { contentDescription = description },
+                                        color = if (toRight) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                }
+                            },
                             content = { content() }
                         )
                     } else {

@@ -1302,6 +1302,13 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="other">, %1$d tapped</item>
     </plurals>
     <string name="recommendations_home_title">Home</string>
+    <string name="radio_recommendation_rules_title">Automatic radio rules</string>
+    <string name="radio_song_cooldown_title">Avoid songs played in the last 7 days</string>
+    <string name="radio_song_cooldown_info">When on, automatic radio leaves out songs from your listening history in the past seven days. The song you chose to start radio is always kept.</string>
+    <string name="radio_song_cooldown_description">Seven-day song cooldown for automatic radio recommendations.</string>
+    <string name="radio_artist_limit_title">Limit songs per artist</string>
+    <string name="radio_artist_limit_info">When on, automatic radio adds no more than two songs by the same artist within any rolling two-hour window, including a radio queue started from Search.</string>
+    <string name="radio_artist_limit_description">At most 2 songs per artist in a rolling 2-hour window.</string>
     <string name="recommendations_engine_title">Best recommendations</string>
     <string name="recommendations_figures_title">How each source did</string>
     <string name="reason_seed">Because you played %1$s</string>
@@ -1367,15 +1374,19 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="similar_mix_none">Half each until both have cards to compare.</string>
     <string name="exclusions">Exclusions</string>
     <string name="exclusions_count">%1$d in force</string>
-    <string name="exclusions_promise">Exclusions touch the recommendation rows only. Search, your library, playlists and radio are never filtered. Banning a song covers its other versions too.</string>
+    <string name="exclusions_promise">Exclusions apply to recommendation rows and automatic radio. Search, your library, playlists and songs you choose to play manually are not filtered.</string>
     <string name="exclusions_active_title">In force</string>
     <string name="exclusions_expired_title">Expired</string>
-    <string name="exclusions_none">Nothing excluded. Long-press a Quick picks card for Not this song, Less of this artist or Never this artist.</string>
+    <string name="exclusions_none">Nothing excluded. Swipe left on a queue song to block its artist or swipe right to block the song; long-press a Quick picks card for more options.</string>
     <string name="exclusion_lift">Lift</string>
     <string name="exclusion_lifted">Exclusion lifted</string>
     <string name="exclusion_until">Until %1$s</string>
     <string name="exclusion_reason_song_ban">Not this song</string>
     <string name="exclusion_reason_artist_ban">Never this artist</string>
+    <string name="queue_swipe_block_song">Swipe right: block this song</string>
+    <string name="queue_swipe_block_artist">Swipe left: block this artist</string>
+    <string name="queue_song_blocked">Song blocked from automatic radio</string>
+    <string name="queue_artist_blocked">Artist blocked from automatic radio</string>
     <string name="exclusion_reason_snooze">Less of this artist, for a month</string>
     <string name="exclusion_reason_rest">Rested after a skip</string>
     <string name="exclusion_reason_gone">No longer on YouTube</string>

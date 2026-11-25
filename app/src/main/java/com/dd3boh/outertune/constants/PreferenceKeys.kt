@@ -269,6 +269,10 @@ val PauseListenHistoryKey = booleanPreferencesKey("pauseListenHistory")
 val TidyHomeRowsKey = booleanPreferencesKey("tidyHomeRows")
 /** Order the chosen source's Quick picks by the engine's score, whatever the source. */
 val RankWithListeningKey = booleanPreferencesKey("rankWithListening")
+/** Whether automatic radio recommendations exclude songs played during the last seven days. Off by default. */
+val RadioSongCooldownEnabledKey = booleanPreferencesKey("radioSongCooldownEnabled")
+/** Whether automatic radio recommendations limit each artist to two songs per rolling two hours. Off by default. */
+val RadioArtistLimitEnabledKey = booleanPreferencesKey("radioArtistLimitEnabled")
 /** Captions under engine cards saying why each is there. */
 val ShowReasonsKey = booleanPreferencesKey("showReasons")
 /** Adventurousness 0 to 100: how much of the engine row is new artists. */

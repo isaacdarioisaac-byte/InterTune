@@ -36,6 +36,7 @@ class RadioQueueRulesTest {
             startIndex = 0,
             history = listOf(play("seed", now - 60_000L), play("recent", now - 6L * 24L * 60L * 60L * 1000L)),
             nowMs = now,
+            cooldownEnabled = true,
         )
 
         assertEquals(0, result.startIndex)
@@ -55,6 +56,7 @@ class RadioQueueRulesTest {
             reserved = emptyList(),
             firstCandidateAtMs = now,
             nowMs = now,
+            cooldownEnabled = true,
         )
 
         assertEquals(listOf("boundary"), result.map { it.id })
@@ -68,6 +70,7 @@ class RadioQueueRulesTest {
             reserved = emptyList(),
             firstCandidateAtMs = now,
             nowMs = now,
+            artistLimitEnabled = true,
         )
 
         assertEquals(listOf("other"), result.map { it.id })
@@ -81,6 +84,7 @@ class RadioQueueRulesTest {
             reserved = emptyList(),
             firstCandidateAtMs = now,
             nowMs = now,
+            artistLimitEnabled = true,
         )
 
         assertEquals(listOf("eligible"), result.map { it.id })
@@ -98,6 +102,7 @@ class RadioQueueRulesTest {
             reserved = reserved,
             firstCandidateAtMs = now + 180_000L,
             nowMs = now,
+            artistLimitEnabled = true,
         )
 
         assertTrue(result.isEmpty())
@@ -112,9 +117,70 @@ class RadioQueueRulesTest {
             startIndex = 0,
             history = listOf(play("earlier", now - 30L * 60L * 1000L)),
             nowMs = now,
+            artistLimitEnabled = true,
         )
 
         assertEquals(listOf("seed"), result.items.map { it.id })
+        assertEquals("seed", result.items[result.startIndex].id)
+    }
+
+    @Test
+    fun `both radio rules are off by default`() {
+        val candidate = song("played-twice")
+        val result = RadioQueueRules.filterPage(
+            candidates = listOf(candidate),
+            history = listOf(play(candidate.id, now - 30L * 60L * 1000L), play("other", now - 20L * 60L * 1000L)),
+            reserved = emptyList(),
+            firstCandidateAtMs = now,
+            nowMs = now,
+        )
+
+        assertEquals(listOf(candidate.id), result.map { it.id })
+    }
+
+    @Test
+    fun `cooldown and artist quota can be enabled independently`() {
+        val candidate = song("third")
+        val history = listOf(play("first", now - 90L * 60L * 1000L), play("second", now - 30L * 60L * 1000L))
+        val cooldownOnly = RadioQueueRules.filterPage(
+            candidates = listOf(candidate), history = history, reserved = emptyList(),
+            firstCandidateAtMs = now, nowMs = now, cooldownEnabled = true,
+        )
+        val artistLimitOnly = RadioQueueRules.filterPage(
+            candidates = listOf(candidate), history = history, reserved = emptyList(),
+            firstCandidateAtMs = now, nowMs = now, artistLimitEnabled = true,
+        )
+
+        assertEquals(listOf(candidate.id), cooldownOnly.map { it.id })
+        assertTrue(artistLimitOnly.isEmpty())
+    }
+
+    @Test
+    fun `permanent song and artist bans filter automatic candidates`() {
+        val bannedSong = song("blocked-song", "Other", "other-id")
+        val sameArtist = song("blocked-artist-song")
+        val allowed = song("allowed", "Elsewhere", "elsewhere-id")
+        val result = RadioQueueRules.filterPage(
+            candidates = listOf(bannedSong, sameArtist, allowed), history = emptyList(), reserved = emptyList(),
+            firstCandidateAtMs = now, nowMs = now,
+            blockedSongIds = setOf("blocked-song"),
+            blockedArtistKeys = RadioQueueRules.artistKeys("artist-id", "Artist"),
+        )
+
+        assertEquals(listOf("allowed"), result.map { it.id })
+    }
+
+    @Test
+    fun `manual seed remains playable even when it is blocked`() {
+        val seed = song("seed")
+        val suggestion = song("suggestion", "Another", "another-id")
+        val result = RadioQueueRules.filterInitial(
+            items = listOf(seed, suggestion), startIndex = 0, history = emptyList(), nowMs = now,
+            blockedSongIds = setOf("seed"),
+            blockedArtistKeys = RadioQueueRules.artistKeys(seed.artists),
+        )
+
+        assertEquals(listOf("seed", "suggestion"), result.items.map { it.id })
         assertEquals("seed", result.items[result.startIndex].id)
     }
 }

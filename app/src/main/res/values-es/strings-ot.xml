@@ -963,6 +963,13 @@
         <item quantity="other">, %1$d tocadas</item>
     </plurals>
     <string name="recommendations_home_title">Inicio</string>
+    <string name="radio_recommendation_rules_title">Reglas de radio automática</string>
+    <string name="radio_song_cooldown_title">Evitar canciones escuchadas en los últimos 7 días</string>
+    <string name="radio_song_cooldown_info">Si lo activas, la radio automática omitirá canciones de tu historial de los últimos siete días. La canción que elegiste para iniciar la radio siempre se conserva.</string>
+    <string name="radio_song_cooldown_description">Enfría durante siete días las canciones de las recomendaciones automáticas de radio.</string>
+    <string name="radio_artist_limit_title">Limitar canciones por artista</string>
+    <string name="radio_artist_limit_info">Si lo activas, la radio automática agrega como máximo dos canciones del mismo artista en cualquier período móvil de dos horas, también en una cola de radio iniciada desde Buscar.</string>
+    <string name="radio_artist_limit_description">Como máximo 2 canciones por artista en un período móvil de 2 horas.</string>
     <string name="recommendations_engine_title">Mejores recomendaciones</string>
     <string name="recommendations_figures_title">Cómo le fue a cada fuente</string>
     <string name="reason_seed">Porque escuchaste %1$s</string>
@@ -1030,15 +1037,19 @@
     <string name="similar_mix_none">Mitad y mitad hasta que las dos tengan tarjetas para comparar.</string>
     <string name="exclusions">Exclusiones</string>
     <string name="exclusions_count">%1$d en vigor</string>
-    <string name="exclusions_promise">Las exclusiones solo afectan a las filas de recomendaciones. La búsqueda, tu biblioteca, las listas de reproducción y la radio nunca se filtran. Excluir una canción también excluye sus otras versiones.</string>
+    <string name="exclusions_promise">Las exclusiones afectan las filas de recomendaciones y la radio automática. No filtran las búsquedas, tu biblioteca, las listas de reproducción ni las canciones que eliges reproducir manualmente.</string>
     <string name="exclusions_active_title">En vigor</string>
     <string name="exclusions_expired_title">Vencidas</string>
-    <string name="exclusions_none">Nada excluido. Mantén presionada una tarjeta de Selecciones rápidas para elegir Esta canción no, Menos de este artista o Nunca este artista.</string>
+    <string name="exclusions_none">Nada excluido. Desliza una canción de la cola a la izquierda para bloquear al artista o a la derecha para bloquear la canción; mantén presionada una tarjeta de Selecciones rápidas para ver más opciones.</string>
     <string name="exclusion_lift">Levantar</string>
     <string name="exclusion_lifted">Exclusión levantada</string>
     <string name="exclusion_until">Hasta el %1$s</string>
     <string name="exclusion_reason_song_ban">Esta canción no</string>
     <string name="exclusion_reason_artist_ban">Nunca este artista</string>
+    <string name="queue_swipe_block_song">Desliza a la derecha: bloquear esta canción</string>
+    <string name="queue_swipe_block_artist">Desliza a la izquierda: bloquear este artista</string>
+    <string name="queue_song_blocked">Canción bloqueada en la radio automática</string>
+    <string name="queue_artist_blocked">Artista bloqueado en la radio automática</string>
     <string name="exclusion_reason_snooze">Menos de este artista, durante un mes</string>
     <string name="exclusion_reason_rest">En descanso tras saltarla</string>
     <string name="exclusion_reason_gone">Ya no está en YouTube</string>

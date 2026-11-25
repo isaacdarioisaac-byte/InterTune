@@ -49,6 +49,8 @@ import com.dd3boh.outertune.constants.NewSongsOnlyKey
 import com.dd3boh.outertune.constants.QuickPicksLeanKey
 import com.dd3boh.outertune.constants.QuickPicksSource
 import com.dd3boh.outertune.constants.QuickPicksSourceKey
+import com.dd3boh.outertune.constants.RadioArtistLimitEnabledKey
+import com.dd3boh.outertune.constants.RadioSongCooldownEnabledKey
 import com.dd3boh.outertune.constants.RankWithListeningKey
 import com.dd3boh.outertune.constants.RestSongsISkipKey
 import com.dd3boh.outertune.constants.RestsEverywhereKey
@@ -116,6 +118,8 @@ fun RecommendationsSettings(
     val (learnFromListening, onLearnFromListeningChange) = rememberPreference(LearnFromListeningKey, defaultValue = true)
     val (restSongsISkip, onRestSongsISkipChange) = rememberPreference(RestSongsISkipKey, defaultValue = false)
     val (restsEverywhere, onRestsEverywhereChange) = rememberPreference(RestsEverywhereKey, defaultValue = false)
+    val (radioSongCooldown, onRadioSongCooldownChange) = rememberPreference(RadioSongCooldownEnabledKey, defaultValue = false)
+    val (radioArtistLimit, onRadioArtistLimitChange) = rememberPreference(RadioArtistLimitEnabledKey, defaultValue = false)
     val context = LocalContext.current
     // Unset, the old Last.fm switch decides, as it does everywhere else; see SimilarSources.stored.
     val similarDefault = remember { SimilarSources.stored(null, context.dataStore[SimilarFromLastFmKey]) }
@@ -126,6 +130,25 @@ fun RecommendationsSettings(
         modifier = Modifier.fillMaxHeight(),
         columnModifier = Modifier.padding(horizontal = 16.dp)
     ) {
+        PreferenceGroupTitle(title = stringResource(R.string.radio_recommendation_rules_title))
+        ExplainedSwitchPreference(
+            modifier = Modifier.settingRow(R.string.radio_song_cooldown_title),
+            title = stringResource(R.string.radio_song_cooldown_title),
+            explanation = stringResource(R.string.radio_song_cooldown_info),
+            description = stringResource(R.string.radio_song_cooldown_description),
+            checked = radioSongCooldown,
+            onCheckedChange = onRadioSongCooldownChange,
+        )
+        ExplainedSwitchPreference(
+            modifier = Modifier.settingRow(R.string.radio_artist_limit_title),
+            title = stringResource(R.string.radio_artist_limit_title),
+            explanation = stringResource(R.string.radio_artist_limit_info),
+            description = stringResource(R.string.radio_artist_limit_description),
+            checked = radioArtistLimit,
+            onCheckedChange = onRadioArtistLimitChange,
+        )
+        Spacer(Modifier.height(16.dp))
+
         PreferenceGroupTitle(title = stringResource(R.string.recommendations_home_title))
         ExplainedSwitchPreference(
             modifier = Modifier.tourTarget(SettingJumps.TIDY_HOME_ROWS).settingRow(R.string.tidy_home_rows),

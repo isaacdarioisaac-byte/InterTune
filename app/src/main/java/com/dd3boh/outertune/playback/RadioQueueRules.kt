@@ -40,6 +40,10 @@ internal object RadioQueueRules {
         startIndex: Int,
         history: List<Play>,
         nowMs: Long,
+        cooldownEnabled: Boolean = false,
+        artistLimitEnabled: Boolean = false,
+        blockedSongIds: Set<String> = emptySet(),
+        blockedArtistKeys: Set<String> = emptySet(),
     ): Initial {
         if (items.isEmpty()) return Initial(items, 0)
         val seedIndex = startIndex.coerceIn(0, items.lastIndex)
@@ -57,6 +61,10 @@ internal object RadioQueueRules {
             reserved = emptyList(),
             firstCandidateAtMs = nowMs + durationMs(seed.duration),
             nowMs = nowMs,
+            cooldownEnabled = cooldownEnabled,
+            artistLimitEnabled = artistLimitEnabled,
+            blockedSongIds = blockedSongIds,
+            blockedArtistKeys = blockedArtistKeys,
         )
         return Initial(filtered, seedIndex)
     }
@@ -68,6 +76,10 @@ internal object RadioQueueRules {
         reserved: List<Scheduled>,
         firstCandidateAtMs: Long,
         nowMs: Long,
+        cooldownEnabled: Boolean = false,
+        artistLimitEnabled: Boolean = false,
+        blockedSongIds: Set<String> = emptySet(),
+        blockedArtistKeys: Set<String> = emptySet(),
     ): List<MediaMetadata> = filterAfter(
         items = candidates,
         preserveIndex = null,
@@ -75,6 +87,10 @@ internal object RadioQueueRules {
         reserved = reserved,
         firstCandidateAtMs = firstCandidateAtMs,
         nowMs = nowMs,
+        cooldownEnabled = cooldownEnabled,
+        artistLimitEnabled = artistLimitEnabled,
+        blockedSongIds = blockedSongIds,
+        blockedArtistKeys = blockedArtistKeys,
     )
 
     private fun filterAfter(
@@ -84,15 +100,25 @@ internal object RadioQueueRules {
         reserved: List<Scheduled>,
         firstCandidateAtMs: Long,
         nowMs: Long,
+        cooldownEnabled: Boolean,
+        artistLimitEnabled: Boolean,
+        blockedSongIds: Set<String>,
+        blockedArtistKeys: Set<String>,
     ): List<MediaMetadata> {
         if (items.isEmpty()) return items
-        val recentHistory = history.filter { it.atMs > nowMs - SONG_COOLDOWN_MS && it.atMs <= nowMs }
-        val playedIds = recentHistory.mapTo(HashSet()) { it.songId }
+        // The query can supply the full seven-day history. Keep it when either rule is active:
+        // the rolling artist window is evaluated against each planned start time, not just now.
+        val recentHistory = if (cooldownEnabled || artistLimitEnabled) {
+            history.filter { it.atMs > nowMs - SONG_COOLDOWN_MS && it.atMs <= nowMs }
+        } else emptyList()
+        val playedIds = if (cooldownEnabled) recentHistory.mapTo(HashSet()) { it.songId } else emptySet()
         val reservedIds = reserved.mapTo(HashSet()) { it.songId }
         val acceptedIds = HashSet<String>()
-        val planned = ArrayList<Play>(recentHistory.size + reserved.size + items.size)
-        planned.addAll(recentHistory)
-        planned.addAll(reserved.map { Play(it.songId, it.artistKeys, it.atMs) })
+        val planned = ArrayList<Play>(if (artistLimitEnabled) recentHistory.size + reserved.size + items.size else 0)
+        if (artistLimitEnabled) {
+            planned.addAll(recentHistory)
+            planned.addAll(reserved.map { Play(it.songId, it.artistKeys, it.atMs) })
+        }
 
         val output = items.map { it as MediaMetadata? }.toMutableList()
         var nextAt = firstCandidateAtMs
@@ -102,16 +128,17 @@ internal object RadioQueueRules {
             val candidate = items[index]
             val keys = artistKeys(candidate.artists)
             val recentlyPlayed = candidate.id in playedIds
+            val blocked = candidate.id in blockedSongIds || keys.any { it in blockedArtistKeys }
             val alreadyReserved = candidate.id in reservedIds
             val repeatedInPage = candidate.id in acceptedIds
-            val artistLimitReached = keys.any { key ->
+            val artistLimitReached = artistLimitEnabled && keys.any { key ->
                 planned.count { key in it.artistKeys && it.atMs > nextAt - ARTIST_WINDOW_MS && it.atMs <= nextAt } >= MAX_PER_ARTIST
             }
-            if (recentlyPlayed || alreadyReserved || repeatedInPage || artistLimitReached) {
+            if (blocked || recentlyPlayed || alreadyReserved || repeatedInPage || artistLimitReached) {
                 output[index] = null
             } else {
                 acceptedIds += candidate.id
-                planned += Play(candidate.id, keys, nextAt)
+                if (artistLimitEnabled) planned += Play(candidate.id, keys, nextAt)
                 nextAt += durationMs(candidate.duration)
             }
         }

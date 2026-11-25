@@ -16,6 +16,8 @@ import com.dd3boh.outertune.db.entities.RecommendationExclusion
 import com.dd3boh.outertune.constants.RestSongsISkipKey
 import com.dd3boh.outertune.constants.RelatedRefreshCountKey
 import com.dd3boh.outertune.constants.RelatedRefreshDayKey
+import com.dd3boh.outertune.constants.RadioArtistLimitEnabledKey
+import com.dd3boh.outertune.constants.RadioSongCooldownEnabledKey
 import com.dd3boh.outertune.engine.DatabaseBackfillIo
 import com.dd3boh.outertune.engine.LegacyBackfill
 import android.app.PendingIntent
@@ -2479,11 +2481,18 @@ class MusicService : MediaLibraryService(),
             val now = System.currentTimeMillis()
             val seedIndex = seed?.let { chosen -> status.items.indexOfFirst { it.id == chosen.id } }
                 ?.takeIf { it >= 0 } ?: status.mediaItemIndex
+            val cooldownEnabled = dataStore.current[RadioSongCooldownEnabledKey] == true
+            val artistLimitEnabled = dataStore.current[RadioArtistLimitEnabledKey] == true
+            val bans = activeRadioBans(now)
             val filtered = RadioQueueRules.filterInitial(
                 items = status.items,
                 startIndex = seedIndex,
-                history = recentRadioHistory(now),
+                history = if (cooldownEnabled || artistLimitEnabled) recentRadioHistory(now) else emptyList(),
                 nowMs = now,
+                cooldownEnabled = cooldownEnabled,
+                artistLimitEnabled = artistLimitEnabled,
+                blockedSongIds = bans.first,
+                blockedArtistKeys = bans.second,
             )
             if (filtered.items.size < status.items.size) {
                 Log.d(TAG, "Radio rules left out ${status.items.size - filtered.items.size} initial recommendations")
@@ -2505,6 +2514,49 @@ class MusicService : MediaLibraryService(),
         }
     }
 
+    /** Permanent song and artist bans apply to automatic radio only; manual choices are untouched. */
+    private suspend fun activeRadioBans(now: Long): Pair<Set<String>, Set<String>> = withContext(Dispatchers.IO) {
+        val exclusions = database.readOrNull { engineExclusions(now) }.orEmpty()
+            .filter { it.reason == ExclusionsViewModel.REASON_BAN }
+        val songIds = exclusions.asSequence()
+            .filter { it.kind == ExclusionsViewModel.KIND_SONG }
+            .mapTo(HashSet()) { it.targetId }
+        val artistKeys = exclusions.asSequence()
+            .filter { it.kind == ExclusionsViewModel.KIND_ARTIST }
+            .flatMap { exclusion ->
+                RadioQueueRules.artistKeys(exclusion.targetId.takeUnless { it.startsWith("name:") }, exclusion.label).asSequence()
+            }
+            .toSet()
+        songIds to artistKeys
+    }
+
+    /** Writes a permanent ban from a queue gesture. The user can lift it in Settings → Exclusions. */
+    fun banQueueRecommendation(song: MediaMetadata, artist: Boolean) {
+        val target = if (artist) song.artists.firstOrNull() ?: return else null
+        val artistNameKey = target?.let { RadioQueueRules.artistKeys(null, it.name).firstOrNull() }
+        if (artist && artistNameKey == null) return
+        val kind = if (artist) ExclusionsViewModel.KIND_ARTIST else ExclusionsViewModel.KIND_SONG
+        val targetId = if (artist) target!!.id?.takeIf(String::isNotBlank) ?: artistNameKey!! else song.id
+        val label = if (artist) target!!.name else song.title
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                val now = System.currentTimeMillis()
+                database.transactionNow {
+                    insertExclusion(
+                        RecommendationExclusion(
+                            kind = kind,
+                            targetId = targetId,
+                            label = label,
+                            reason = ExclusionsViewModel.REASON_BAN,
+                            createdAt = now,
+                            expiresAt = null,
+                        )
+                    )
+                }
+            }.onFailure { Log.w(TAG, "Could not save a permanent radio exclusion", it) }
+        }
+    }
+
     /** Filters a newly fetched radio page against listening history and the automatic tail already queued. */
     private suspend fun filterRadioSuggestions(
         candidates: List<MediaMetadata>,
@@ -2512,6 +2564,9 @@ class MusicService : MediaLibraryService(),
     ): List<MediaMetadata> {
         if (candidates.isEmpty()) return candidates
         val now = System.currentTimeMillis()
+        val cooldownEnabled = dataStore.current[RadioSongCooldownEnabledKey] == true
+        val artistLimitEnabled = dataStore.current[RadioArtistLimitEnabledKey] == true
+        val bans = activeRadioBans(now)
         val items = queue.getCurrentQueueShuffled()
         val currentIndex = activePlayer.currentMediaItemIndex.coerceIn(-1, items.lastIndex)
         val remainingCurrent = activePlayer.duration.takeIf { it > 0L }
@@ -2534,10 +2589,14 @@ class MusicService : MediaLibraryService(),
         }
         return RadioQueueRules.filterPage(
             candidates = candidates,
-            history = recentRadioHistory(now),
+            history = if (cooldownEnabled || artistLimitEnabled) recentRadioHistory(now) else emptyList(),
             reserved = reserved,
             firstCandidateAtMs = nextAt,
             nowMs = now,
+            cooldownEnabled = cooldownEnabled,
+            artistLimitEnabled = artistLimitEnabled,
+            blockedSongIds = bans.first,
+            blockedArtistKeys = bans.second,
         )
     }
 
