@@ -27,14 +27,14 @@ class RadioQueueRulesTest {
         RadioQueueRules.Play(id, RadioQueueRules.artistKeys(artistId, artist), at)
 
     @Test
-    fun `the initial radio keeps its selected seed but leaves a song played inside 48 hours out`() {
+    fun `the initial radio keeps its selected seed but leaves a song played inside seven days out`() {
         val seed = song("seed")
         val recent = song("recent")
         val fresh = song("fresh", artist = "Another")
         val result = RadioQueueRules.filterInitial(
             items = listOf(seed, recent, fresh),
             startIndex = 0,
-            history = listOf(play("seed", now - 60_000L), play("recent", now - 20L * 60L * 60L * 1000L)),
+            history = listOf(play("seed", now - 60_000L), play("recent", now - 6L * 24L * 60L * 60L * 1000L)),
             nowMs = now,
         )
 
@@ -43,7 +43,7 @@ class RadioQueueRulesTest {
     }
 
     @Test
-    fun `a song becomes eligible exactly at the 48 hour boundary`() {
+    fun `a song becomes eligible exactly at the seven day boundary`() {
         val boundary = song("boundary", artist = "New")
         val stillCooling = song("cooling", artist = "Other")
         val result = RadioQueueRules.filterPage(

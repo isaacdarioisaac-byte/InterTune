@@ -2492,7 +2492,7 @@ class MusicService : MediaLibraryService(),
         }
     })
 
-    /** Read the last 48 hours from the listen log; this survives process restarts and excludes failed streams. */
+    /** Read the last seven days from the listen log; this survives process restarts and excludes failed streams. */
     private suspend fun recentRadioHistory(now: Long): List<RadioQueueRules.Play> = withContext(Dispatchers.IO) {
         database.readOrNull {
             recentRadioPlays(now - RadioQueueRules.SONG_COOLDOWN_MS, now)

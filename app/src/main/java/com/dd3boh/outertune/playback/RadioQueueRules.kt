@@ -12,7 +12,7 @@ import java.util.Locale
 
 /** Limits applied only to automatically recommended songs, never to the selected seed or hand-added songs. */
 internal object RadioQueueRules {
-    const val SONG_COOLDOWN_MS = 48L * 60L * 60L * 1000L
+    const val SONG_COOLDOWN_MS = 168L * 60L * 60L * 1000L
     const val ARTIST_WINDOW_MS = 2L * 60L * 60L * 1000L
     const val MAX_PER_ARTIST = 2
     const val UNKNOWN_DURATION_MS = 3L * 60L * 1000L
